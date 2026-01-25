@@ -257,13 +257,13 @@ export default function Home() {
                       onChange={(e) => handleInputChange(index, 'name', e.target.value)}
                       className="input-field flex-1 transition-shadow focus:ring-2 focus:ring-blue-100"
                     />
-                    <div className="relative w-32 md:w-40">
+                    <div className="relative w-36 md:w-40">
                       <input
                         type="number"
                         placeholder="点数"
                         value={player.score}
                         onChange={(e) => handleInputChange(index, 'score', e.target.value)}
-                        className="input-field w-full text-right pr-12 font-mono tracking-tight"
+                        className="input-field w-full text-right pr-14 font-mono tracking-tight"
                       />
                       <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs font-bold">点</span>
                     </div>
