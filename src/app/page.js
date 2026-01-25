@@ -263,7 +263,7 @@ export default function Home() {
                         placeholder="点数"
                         value={player.score}
                         onChange={(e) => handleInputChange(index, 'score', e.target.value)}
-                        className="input-field w-full text-right pr-9 font-mono tracking-tight"
+                        className="input-field w-full text-right pr-12 font-mono tracking-tight"
                       />
                       <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs font-bold">点</span>
                     </div>
