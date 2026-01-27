@@ -258,6 +258,20 @@ export default function Home() {
                       className="input-field flex-1 transition-shadow focus:ring-2 focus:ring-blue-100"
                     />
                     <div className="relative w-36 md:w-40">
+                      <button
+                        tabIndex="-1"
+                        onClick={() => {
+                          const current = player.score.toString();
+                          if (current.startsWith('-')) {
+                            handleInputChange(index, 'score', current.substring(1));
+                          } else {
+                            handleInputChange(index, 'score', '-' + current);
+                          }
+                        }}
+                        className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-full transition-colors font-bold z-10"
+                      >
+                        ±
+                      </button>
                       <input
                         type="text"
                         inputMode="decimal"
@@ -270,7 +284,7 @@ export default function Home() {
                             handleInputChange(index, 'score', val);
                           }
                         }}
-                        className="input-field w-full text-right !pr-14 font-mono tracking-tight"
+                        className="input-field w-full text-right !pl-10 !pr-14 font-mono tracking-tight"
                       />
                       <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs font-bold">点</span>
                     </div>
