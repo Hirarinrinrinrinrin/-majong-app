@@ -218,5 +218,13 @@ button {
   /* Gray 100 */
   color: #6b7280;
   /* Gray 500 */
-  border: 1px solid #e5e7eb;
+
+/* Hide number input spinners */
+input[type=number]::-webkit-inner-spin-button, 
+input[type=number]::-webkit-outer-spin-button { 
+  -webkit-appearance: none; 
+  margin: 0; 
+}
+input[type=number] {
+  -moz-appearance: textfield;
 }
