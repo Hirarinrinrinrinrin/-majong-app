@@ -50,6 +50,21 @@ export default function Home() {
       return;
     }
 
+    // Check for unregistered members
+    const unregistered = players.filter(p => !members.some(m => m.name === p.name));
+    if (unregistered.length > 0) {
+      setError(`以下のプレイヤーは会員リストに存在しません: ${unregistered.map(p => p.name).join(', ')}`);
+      return;
+    }
+
+    // Check for duplicate names
+    const names = players.map(p => p.name);
+    const uniqueNames = new Set(names);
+    if (uniqueNames.size !== names.length) {
+      setError('同じ名前のプレイヤーが重複して入力されています。');
+      return;
+    }
+
     const scores = players.map(p => parseInt(p.score, 10));
     const total = scores.reduce((a, b) => a + b, 0);
 
