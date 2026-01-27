@@ -259,10 +259,17 @@ export default function Home() {
                     />
                     <div className="relative w-36 md:w-40">
                       <input
-                        type="number"
+                        type="text"
+                        inputMode="decimal"
+                        pattern="[-0-9]*"
                         placeholder="点数"
                         value={player.score}
-                        onChange={(e) => handleInputChange(index, 'score', e.target.value)}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          if (val === '' || /^-?\d*$/.test(val)) {
+                            handleInputChange(index, 'score', val);
+                          }
+                        }}
                         className="input-field w-full text-right !pr-14 font-mono tracking-tight"
                       />
                       <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs font-bold">点</span>
