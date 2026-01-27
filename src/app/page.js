@@ -243,7 +243,7 @@ export default function Home() {
 
                     {/* Datalist for this specific input */}
                     <datalist id={datalistId}>
-                      {player.name && members.map(m => (
+                      {members.map(m => (
                         <option key={m.id} value={m.name} />
                       ))}
                     </datalist>
