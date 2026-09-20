@@ -431,7 +431,8 @@ export default function AdminDashboard() {
             alert('パスワードを入力してください');
             return;
         }
-        if (!confirm(`${type === 'user' ? '一般ユーザー' : '管理者'}のパスワードを変更しますか？`)) return;
+        const typeLabels = { user: '一般ユーザー', admin: '管理者', scores: 'スコア閲覧' };
+        if (!confirm(`${typeLabels[type] || type}のパスワードを変更しますか？`)) return;
 
         try {
             const res = await fetch('/api/settings', {
@@ -443,7 +444,8 @@ export default function AdminDashboard() {
             if (!res.ok) throw new Error('Failed');
             alert('パスワードを更新しました');
             // Clear input
-            const inputId = type === 'user' ? 'new-user-pwd' : 'new-admin-pwd';
+            const inputIds = { user: 'new-user-pwd', admin: 'new-admin-pwd', scores: 'new-scores-pwd' };
+            const inputId = inputIds[type];
             const input = document.getElementById(inputId);
             if (input) input.value = '';
         } catch (e) {
@@ -1514,7 +1516,7 @@ export default function AdminDashboard() {
                                 <h3 className="text-sm font-semibold text-gray-900 mb-4 flex items-center gap-2">
                                     <Icons.Settings /> パスワード変更
                                 </h3>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                                     {/* User Password */}
                                     <div className="bg-gray-50 p-4 rounded border border-gray-200">
                                         <h4 className="text-xs font-bold text-gray-700 mb-2">一般ユーザー用</h4>
@@ -1546,6 +1548,23 @@ export default function AdminDashboard() {
                                                 className="bg-[#004d80] text-white text-xs px-3 py-1 rounded hover:bg-[#003d66]"
                                             >更新</button>
                                         </div>
+                                    </div>
+                                    {/* Scores Viewer Password */}
+                                    <div className="bg-gray-50 p-4 rounded border border-gray-200">
+                                        <h4 className="text-xs font-bold text-gray-700 mb-2">スコア閲覧用 (/scores)</h4>
+                                        <div className="flex gap-2">
+                                            <input
+                                                type="text"
+                                                className="border rounded px-2 py-1 flex-1 text-sm"
+                                                placeholder="新しいパスワード"
+                                                id="new-scores-pwd"
+                                            />
+                                            <button
+                                                onClick={() => changePassword('scores', document.getElementById('new-scores-pwd').value)}
+                                                className="bg-emerald-600 text-white text-xs px-3 py-1 rounded hover:bg-emerald-700"
+                                            >更新</button>
+                                        </div>
+                                        <p className="text-[10px] text-gray-400 mt-2">初期値: scores（会員に共有する前に変更してください）</p>
                                     </div>
                                 </div>
                             </section>

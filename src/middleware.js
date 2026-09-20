@@ -36,9 +36,23 @@ export function middleware(request) {
         }
     }
 
+    // 4. Score Viewer Protection (read-only report page, separate password from user/admin)
+    if (path.startsWith('/scores') && path !== '/scores/login') {
+        const scoresSession = request.cookies.get('auth_scores_session');
+        if (!scoresSession) {
+            return NextResponse.redirect(new URL('/scores/login', request.url));
+        }
+    }
+
+    if (path === '/scores/login') {
+        if (request.cookies.get('auth_scores_session')) {
+            return NextResponse.redirect(new URL('/scores', request.url));
+        }
+    }
+
     return NextResponse.next();
 }
 
 export const config = {
-    matcher: ['/', '/login', '/admin/:path*'],
+    matcher: ['/', '/login', '/admin/:path*', '/scores/:path*'],
 };

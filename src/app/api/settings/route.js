@@ -43,7 +43,9 @@ export async function PUT(request) {
             const { type, password } = body;
             if (!type || !password) return NextResponse.json({ error: 'Missing data' }, { status: 400 });
 
-            const key = type === 'admin' ? 'admin_password' : 'user_password';
+            const passwordKeys = { admin: 'admin_password', user: 'user_password', scores: 'scores_password' };
+            const key = passwordKeys[type];
+            if (!key) return NextResponse.json({ error: 'Invalid type' }, { status: 400 });
             const crypto = require('crypto');
             const hash = crypto.createHash('sha256').update(password).digest('hex');
 

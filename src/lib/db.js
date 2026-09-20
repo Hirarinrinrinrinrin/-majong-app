@@ -97,6 +97,13 @@ try {
     const hash = crypto.createHash('sha256').update('admin').digest('hex');
     db.prepare("INSERT INTO settings (key, value) VALUES ('admin_password', ?)").run(hash);
   }
+
+  const scoresPwd = db.prepare("SELECT value FROM settings WHERE key = 'scores_password'").get();
+  if (!scoresPwd) {
+    // sha256 of 'scores'
+    const hash = crypto.createHash('sha256').update('scores').digest('hex');
+    db.prepare("INSERT INTO settings (key, value) VALUES ('scores_password', ?)").run(hash);
+  }
 } catch (e) {
   console.error('Failed to seed passwords', e);
 }
