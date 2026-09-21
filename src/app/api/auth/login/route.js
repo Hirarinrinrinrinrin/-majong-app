@@ -14,7 +14,7 @@ export async function POST(request) {
         const inputHash = crypto.createHash('sha256').update(password).digest('hex');
 
         // Fetch stored password
-        const passwordKeys = { admin: 'admin_password', user: 'user_password', scores: 'scores_password' };
+        const passwordKeys = { admin: 'admin_password', user: 'user_password', scores: 'scores_password', edit: 'edit_password' };
         const key = passwordKeys[type];
         if (!key) {
             return NextResponse.json({ error: 'Invalid type' }, { status: 400 });
@@ -56,6 +56,14 @@ export async function POST(request) {
                 secure: process.env.NODE_ENV === 'production',
                 sameSite: 'lax',
                 maxAge: thirtyDays
+            });
+        } else if (type === 'edit') {
+            // Unlocks editing of finished-event data. Sensitive, so session-only (dies on browser close).
+            response.cookies.set('auth_edit_session', 'true', {
+                httpOnly: true,
+                secure: process.env.NODE_ENV === 'production',
+                sameSite: 'lax',
+                // No maxAge -> session cookie
             });
         }
 

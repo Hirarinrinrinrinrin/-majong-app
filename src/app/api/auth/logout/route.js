@@ -7,6 +7,7 @@ export async function POST(request) {
     response.cookies.delete('auth_user_session');
     response.cookies.delete('auth_admin_session');
     response.cookies.delete('auth_scores_session');
+    response.cookies.delete('auth_edit_session');
 
     return response;
 }

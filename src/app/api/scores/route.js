@@ -54,6 +54,10 @@ export async function POST(request) {
     }
 }
 
+const EDITABLE_SCORE_FIELDS = [1, 2, 3, 4].flatMap(i => [
+    `player_${i}_name`, `player_${i}_score`, `player_${i}_raw_score`, `player_${i}_yakuman`
+]);
+
 export async function PUT(request) {
     try {
         const body = await request.json();
@@ -64,11 +68,24 @@ export async function PUT(request) {
             return NextResponse.json({ error: 'ID and updates required' }, { status: 400 });
         }
 
+        const score = db.prepare('SELECT event_id FROM scores WHERE id = ?').get(id);
+        if (!score) {
+            return NextResponse.json({ error: 'Score not found' }, { status: 404 });
+        }
+
+        const event = db.prepare('SELECT status FROM events WHERE id = ?').get(score.event_id);
+        if (event?.status === 'finished') {
+            const editSession = request.cookies.get('auth_edit_session');
+            if (!editSession) {
+                return NextResponse.json({ error: '終了済みイベントのデータ修正には編集用パスワードでの認証が必要です。' }, { status: 403 });
+            }
+        }
+
         const setClauses = [];
         const values = [];
 
         Object.keys(updates).forEach(key => {
-            if (['player_1_yakuman', 'player_2_yakuman', 'player_3_yakuman', 'player_4_yakuman'].includes(key)) {
+            if (EDITABLE_SCORE_FIELDS.includes(key)) {
                 setClauses.push(`${key} = ?`);
                 values.push(updates[key]);
             }

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
+import { calculateGameScores } from '@/lib/scoring';
 
 // Icons for the sidebar
 const Icons = {
@@ -54,6 +55,14 @@ export default function AdminDashboard() {
     const [selectedHistoryEvent, setSelectedHistoryEvent] = useState(null);
     const [historyDetailScores, setHistoryDetailScores] = useState([]);
     const [historyDetailLoading, setHistoryDetailLoading] = useState(false);
+
+    // Finished-event correction (requires separate "edit" password)
+    const [editUnlocked, setEditUnlocked] = useState(false);
+    const [editPasswordPrompt, setEditPasswordPrompt] = useState(false);
+    const [editPasswordInput, setEditPasswordInput] = useState('');
+    const [editPasswordError, setEditPasswordError] = useState('');
+    const [editingHistoryGameId, setEditingHistoryGameId] = useState(null);
+    const [editHistoryValues, setEditHistoryValues] = useState(null); // { player_1_name, player_1_raw_score, player_1_yakuman, ... }
 
     // Reset/Settings State
     const [resetMemberData, setResetMemberData] = useState(false);
@@ -431,7 +440,7 @@ export default function AdminDashboard() {
             alert('パスワードを入力してください');
             return;
         }
-        const typeLabels = { user: '一般ユーザー', admin: '管理者', scores: 'スコア閲覧' };
+        const typeLabels = { user: '一般ユーザー', admin: '管理者', scores: 'スコア閲覧', edit: '終了済みデータ編集' };
         if (!confirm(`${typeLabels[type] || type}のパスワードを変更しますか？`)) return;
 
         try {
@@ -444,7 +453,7 @@ export default function AdminDashboard() {
             if (!res.ok) throw new Error('Failed');
             alert('パスワードを更新しました');
             // Clear input
-            const inputIds = { user: 'new-user-pwd', admin: 'new-admin-pwd', scores: 'new-scores-pwd' };
+            const inputIds = { user: 'new-user-pwd', admin: 'new-admin-pwd', scores: 'new-scores-pwd', edit: 'new-edit-pwd' };
             const inputId = inputIds[type];
             const input = document.getElementById(inputId);
             if (input) input.value = '';
@@ -568,6 +577,109 @@ export default function AdminDashboard() {
     const closeHistoryDetail = () => {
         setSelectedHistoryEvent(null);
         setHistoryDetailScores([]);
+        setEditingHistoryGameId(null);
+        setEditHistoryValues(null);
+    };
+
+    // --- Finished-Event Correction (separate "edit" password) ---
+    const submitEditUnlock = async (e) => {
+        e.preventDefault();
+        setEditPasswordError('');
+        try {
+            const res = await fetch('/api/auth/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ type: 'edit', password: editPasswordInput })
+            });
+            if (!res.ok) {
+                setEditPasswordError('パスワードが間違っています');
+                return;
+            }
+            setEditUnlocked(true);
+            setEditPasswordPrompt(false);
+            setEditPasswordInput('');
+        } catch (err) {
+            setEditPasswordError('エラーが発生しました');
+        }
+    };
+
+    const startEditHistoryGame = (game) => {
+        if (!editUnlocked) {
+            setEditPasswordPrompt(true);
+            return;
+        }
+        setEditingHistoryGameId(game.id);
+        setEditHistoryValues([1, 2, 3, 4].map(i => ({
+            name: game[`player_${i}_name`],
+            raw_score: String(game[`player_${i}_raw_score`] ?? game[`player_${i}_score`]),
+            yakuman: game[`player_${i}_yakuman`] || 0
+        })));
+    };
+
+    const cancelEditHistoryGame = () => {
+        setEditingHistoryGameId(null);
+        setEditHistoryValues(null);
+    };
+
+    const updateEditHistoryField = (index, field, value) => {
+        setEditHistoryValues(prev => {
+            const next = [...prev];
+            next[index] = { ...next[index], [field]: value };
+            return next;
+        });
+    };
+
+    const saveEditHistoryGame = async () => {
+        if (!editHistoryValues) return;
+
+        if (editHistoryValues.some(p => !p.name.trim())) {
+            alert('全員の名前を入力してください。');
+            return;
+        }
+
+        const rawScores = editHistoryValues.map(p => parseInt(p.raw_score, 10));
+        if (rawScores.some(s => isNaN(s))) {
+            alert('素点は数値で入力してください。');
+            return;
+        }
+
+        const total = rawScores.reduce((a, b) => a + b, 0);
+        if (total !== 100000) {
+            alert(`素点の合計が100,000点ではありません。（現在: ${total}点 / 差: ${total - 100000}点）`);
+            return;
+        }
+
+        const calcInput = editHistoryValues.map((p, i) => ({ name: p.name.trim(), score: rawScores[i] }));
+        const calcResult = calculateGameScores(calcInput);
+
+        const updates = {};
+        calcResult.forEach(p => {
+            const i = p.originalIndex + 1;
+            updates[`player_${i}_name`] = p.name;
+            updates[`player_${i}_raw_score`] = p.score;
+            updates[`player_${i}_score`] = p.recalculated;
+            updates[`player_${i}_yakuman`] = parseInt(editHistoryValues[p.originalIndex].yakuman, 10) || 0;
+        });
+
+        try {
+            const res = await fetch('/api/scores', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: editingHistoryGameId, updates })
+            });
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({}));
+                throw new Error(err.error || '更新に失敗しました');
+            }
+            cancelEditHistoryGame();
+            await openHistoryDetail(selectedHistoryEvent);
+            if (fiscalYear) {
+                await fetchYearlyRanking(fiscalYear);
+                await fetchYearlyEvents(fiscalYear);
+            }
+        } catch (e) {
+            alert(e.message);
+        }
     };
 
     // --- PDF Export ---
@@ -1516,7 +1628,7 @@ export default function AdminDashboard() {
                                 <h3 className="text-sm font-semibold text-gray-900 mb-4 flex items-center gap-2">
                                     <Icons.Settings /> パスワード変更
                                 </h3>
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
                                     {/* User Password */}
                                     <div className="bg-gray-50 p-4 rounded border border-gray-200">
                                         <h4 className="text-xs font-bold text-gray-700 mb-2">一般ユーザー用</h4>
@@ -1565,6 +1677,23 @@ export default function AdminDashboard() {
                                             >更新</button>
                                         </div>
                                         <p className="text-[10px] text-gray-400 mt-2">初期値: scores（会員に共有する前に変更してください）</p>
+                                    </div>
+                                    {/* Finished-Event Edit Password */}
+                                    <div className="bg-gray-50 p-4 rounded border border-gray-200">
+                                        <h4 className="text-xs font-bold text-gray-700 mb-2">終了済みデータ編集用</h4>
+                                        <div className="flex gap-2">
+                                            <input
+                                                type="text"
+                                                className="border rounded px-2 py-1 flex-1 text-sm"
+                                                placeholder="新しいパスワード"
+                                                id="new-edit-pwd"
+                                            />
+                                            <button
+                                                onClick={() => changePassword('edit', document.getElementById('new-edit-pwd').value)}
+                                                className="bg-orange-600 text-white text-xs px-3 py-1 rounded hover:bg-orange-700"
+                                            >更新</button>
+                                        </div>
+                                        <p className="text-[10px] text-gray-400 mt-2">初期値: edit（過去データ管理タブでの修正に必要。限られた人にのみ共有してください）</p>
                                     </div>
                                 </div>
                             </section>
@@ -1649,9 +1778,16 @@ export default function AdminDashboard() {
                                         </h3>
                                         <p className="text-xs text-gray-500 mt-1">詳細レポート</p>
                                     </div>
-                                    <button onClick={closeHistoryDetail} className="text-gray-400 hover:text-gray-600">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-                                    </button>
+                                    <div className="flex items-center gap-4">
+                                        {editUnlocked ? (
+                                            <span className="text-[10px] text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-1 rounded flex items-center gap-1">🔓 編集ロック解除中</span>
+                                        ) : (
+                                            <span className="text-[10px] text-gray-400 flex items-center gap-1">🔒 編集はロック中</span>
+                                        )}
+                                        <button onClick={closeHistoryDetail} className="text-gray-400 hover:text-gray-600">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                                        </button>
+                                    </div>
                                 </div>
 
                                 <div className="p-6 overflow-y-auto custom-scrollbar bg-gray-50">
@@ -1684,6 +1820,7 @@ export default function AdminDashboard() {
                                                             <tr>
                                                                 <th className="p-3 font-semibold border-b border-gray-100">記録時刻</th>
                                                                 <th className="p-3 font-semibold border-b border-gray-100">詳細</th>
+                                                                <th className="p-3 font-semibold border-b border-gray-100 text-right w-20">操作</th>
                                                             </tr>
                                                         </thead>
                                                         <tbody className="divide-y divide-gray-100">
@@ -1693,26 +1830,74 @@ export default function AdminDashboard() {
                                                                         {new Date(game.submitted_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                                                     </td>
                                                                     <td className="p-3">
-                                                                        <div className="flex flex-wrap gap-x-6 gap-y-2">
-                                                                            {[1, 2, 3, 4].map(i => (
-                                                                                <div key={i} className="flex items-center gap-1 text-xs">
-                                                                                    <span className="font-semibold text-gray-700">{game[`player_${i}_name`]}</span>
-                                                                                    <span className={`ml-1 ${game[`player_${i}_score`] > 0 ? 'text-green-600' : 'text-red-500'}`}>
-                                                                                        {game[`player_${i}_score`] > 0 ? '+' : ''}{game[`player_${i}_score`]}
-                                                                                    </span>
-                                                                                    {(game[`player_${i}_yakuman`] > 0) && (
-                                                                                        <span className="ml-2 text-[10px] bg-red-100 text-red-800 px-1.5 rounded border border-red-200">
-                                                                                            🀄 {game[`player_${i}_yakuman`]}
+                                                                        {editingHistoryGameId === game.id ? (
+                                                                            <div className="space-y-2">
+                                                                                {editHistoryValues.map((p, idx) => (
+                                                                                    <div key={idx} className="flex items-center gap-2 text-xs">
+                                                                                        <input
+                                                                                            type="text"
+                                                                                            value={p.name}
+                                                                                            onChange={(e) => updateEditHistoryField(idx, 'name', e.target.value)}
+                                                                                            className="border border-gray-300 rounded px-2 py-1 w-28"
+                                                                                            placeholder="プレイヤー名"
+                                                                                        />
+                                                                                        <input
+                                                                                            type="text"
+                                                                                            inputMode="decimal"
+                                                                                            value={p.raw_score}
+                                                                                            onChange={(e) => {
+                                                                                                const val = e.target.value;
+                                                                                                if (val === '' || /^-?\d*$/.test(val)) updateEditHistoryField(idx, 'raw_score', val);
+                                                                                            }}
+                                                                                            className="border border-gray-300 rounded px-2 py-1 w-20 text-right font-mono"
+                                                                                            placeholder="素点"
+                                                                                        />
+                                                                                        <span className="text-[10px] text-gray-400">🀄</span>
+                                                                                        <input
+                                                                                            type="number"
+                                                                                            min="0"
+                                                                                            value={p.yakuman}
+                                                                                            onChange={(e) => updateEditHistoryField(idx, 'yakuman', parseInt(e.target.value, 10) || 0)}
+                                                                                            className="border border-gray-300 rounded px-1 py-1 w-14 text-right"
+                                                                                        />
+                                                                                    </div>
+                                                                                ))}
+                                                                                <p className="text-[10px] text-gray-400">計算後スコアは素点から自動再計算されます（4人の素点合計は100,000点にしてください）</p>
+                                                                            </div>
+                                                                        ) : (
+                                                                            <div className="flex flex-wrap gap-x-6 gap-y-2">
+                                                                                {[1, 2, 3, 4].map(i => (
+                                                                                    <div key={i} className="flex items-center gap-1 text-xs">
+                                                                                        <span className="font-semibold text-gray-700">{game[`player_${i}_name`]}</span>
+                                                                                        <span className={`ml-1 ${game[`player_${i}_score`] > 0 ? 'text-green-600' : 'text-red-500'}`}>
+                                                                                            {game[`player_${i}_score`] > 0 ? '+' : ''}{game[`player_${i}_score`]}
                                                                                         </span>
-                                                                                    )}
-                                                                                </div>
-                                                                            ))}
-                                                                        </div>
+                                                                                        {(game[`player_${i}_yakuman`] > 0) && (
+                                                                                            <span className="ml-2 text-[10px] bg-red-100 text-red-800 px-1.5 rounded border border-red-200">
+                                                                                                🀄 {game[`player_${i}_yakuman`]}
+                                                                                            </span>
+                                                                                        )}
+                                                                                    </div>
+                                                                                ))}
+                                                                            </div>
+                                                                        )}
+                                                                    </td>
+                                                                    <td className="p-3 text-right align-top">
+                                                                        {editingHistoryGameId === game.id ? (
+                                                                            <div className="flex flex-col gap-1">
+                                                                                <button onClick={saveEditHistoryGame} className="text-[10px] bg-blue-600 text-white px-2 py-1 rounded">保存</button>
+                                                                                <button onClick={cancelEditHistoryGame} className="text-[10px] bg-gray-200 text-gray-700 px-2 py-1 rounded">中止</button>
+                                                                            </div>
+                                                                        ) : (
+                                                                            <button onClick={() => startEditHistoryGame(game)} className="text-[10px] text-blue-600 hover:underline">
+                                                                                編集
+                                                                            </button>
+                                                                        )}
                                                                     </td>
                                                                 </tr>
                                                             ))}
                                                             {historyDetailScores.length === 0 && (
-                                                                <tr><td colSpan="2" className="p-8 text-center text-gray-400 text-xs">対局履歴なし</td></tr>
+                                                                <tr><td colSpan="3" className="p-8 text-center text-gray-400 text-xs">対局履歴なし</td></tr>
                                                             )}
                                                         </tbody>
                                                     </table>
@@ -1726,6 +1911,35 @@ export default function AdminDashboard() {
                                         閉じる
                                     </button>
                                 </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* --- EDIT UNLOCK PASSWORD MODAL --- */}
+                    {editPasswordPrompt && (
+                        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black bg-opacity-50 p-4 animate-fade-in">
+                            <div className="bg-white rounded-lg shadow-xl w-full max-w-sm p-6">
+                                <h3 className="text-sm font-bold text-gray-900 mb-1">編集ロックの解除</h3>
+                                <p className="text-xs text-gray-500 mb-4">終了済みイベントのデータを修正するには、編集用パスワードが必要です。</p>
+                                <form onSubmit={submitEditUnlock} className="space-y-3">
+                                    <input
+                                        type="password"
+                                        autoFocus
+                                        value={editPasswordInput}
+                                        onChange={(e) => setEditPasswordInput(e.target.value)}
+                                        className="input-field text-sm"
+                                        placeholder="編集用パスワード"
+                                    />
+                                    {editPasswordError && <p className="text-red-500 text-xs">{editPasswordError}</p>}
+                                    <div className="flex gap-2 justify-end pt-2">
+                                        <button
+                                            type="button"
+                                            onClick={() => { setEditPasswordPrompt(false); setEditPasswordInput(''); setEditPasswordError(''); }}
+                                            className="btn-secondary text-xs"
+                                        >キャンセル</button>
+                                        <button type="submit" className="btn-primary text-xs">解除する</button>
+                                    </div>
+                                </form>
                             </div>
                         </div>
                     )}

@@ -16,10 +16,6 @@ export default function ScoresPage() {
     const [yearlyRanking, setYearlyRanking] = useState([]);
     const [yearlyEvents, setYearlyEvents] = useState([]);
 
-    useEffect(() => {
-        init();
-    }, []);
-
     const init = async () => {
         setLoading(true);
         try {
@@ -43,6 +39,11 @@ export default function ScoresPage() {
         }
         setLoading(false);
     };
+
+    useEffect(() => {
+        init();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     const loadYear = async (year) => {
         const [rankingRes, eventsRes] = await Promise.all([

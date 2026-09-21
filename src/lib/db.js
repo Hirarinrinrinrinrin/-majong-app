@@ -82,28 +82,14 @@ try {
   db.exec("ALTER TABLE scores ADD COLUMN player_4_raw_score INTEGER");
 } catch (e) { /* ignore if exists */ }
 
-// Seed default passwords
+// Seed default passwords (INSERT OR IGNORE so concurrent builds/workers can't race on the check-then-insert)
 try {
-  const userPwd = db.prepare("SELECT value FROM settings WHERE key = 'user_password'").get();
-  if (!userPwd) {
-    // sha256 of 'user'
-    const hash = crypto.createHash('sha256').update('user').digest('hex');
-    db.prepare("INSERT INTO settings (key, value) VALUES ('user_password', ?)").run(hash);
-  }
-
-  const adminPwd = db.prepare("SELECT value FROM settings WHERE key = 'admin_password'").get();
-  if (!adminPwd) {
-    // sha256 of 'admin'
-    const hash = crypto.createHash('sha256').update('admin').digest('hex');
-    db.prepare("INSERT INTO settings (key, value) VALUES ('admin_password', ?)").run(hash);
-  }
-
-  const scoresPwd = db.prepare("SELECT value FROM settings WHERE key = 'scores_password'").get();
-  if (!scoresPwd) {
-    // sha256 of 'scores'
-    const hash = crypto.createHash('sha256').update('scores').digest('hex');
-    db.prepare("INSERT INTO settings (key, value) VALUES ('scores_password', ?)").run(hash);
-  }
+  const defaults = { user_password: 'user', admin_password: 'admin', scores_password: 'scores', edit_password: 'edit' };
+  const seedStmt = db.prepare("INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)");
+  Object.entries(defaults).forEach(([key, plain]) => {
+    const hash = crypto.createHash('sha256').update(plain).digest('hex');
+    seedStmt.run(key, hash);
+  });
 } catch (e) {
   console.error('Failed to seed passwords', e);
 }

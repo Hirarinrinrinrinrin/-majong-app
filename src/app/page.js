@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { calculateGameScores } from '@/lib/scoring';
 
 export default function Home() {
   const [event, setEvent] = useState(null);
@@ -73,75 +74,8 @@ export default function Home() {
       return;
     }
 
-    const playersWithIndex = players.map((p, i) => ({ ...p, score: parseInt(p.score, 10), originalIndex: i }));
-
-    // Sort descending
-    playersWithIndex.sort((a, b) => b.score - a.score);
-
-    // Assign Ranks and Calculate
-    const calcResults = [...playersWithIndex];
-
-    // Group by score to handle ties
-    const groups = [];
-    calcResults.forEach(p => {
-      const lastGroup = groups[groups.length - 1];
-      if (lastGroup && lastGroup[0].score === p.score) {
-        lastGroup.push(p);
-      } else {
-        groups.push([p]);
-      }
-    });
-
-    const rankBases = { 0: null, 1: 25000, 2: 35000, 3: 40000 }; // 0-based index maps to Rank 1, 2, 3, 4
-    let sumOthers = 0;
-    let rankCounter = 0;
-    let topGroup = null;
-
-    groups.forEach(group => {
-      const currentRankIndex = rankCounter;
-      // rank is 1-based
-      const rank = currentRankIndex + 1;
-
-      // Check if this is the top group (containing index 0)
-      if (currentRankIndex === 0) {
-        topGroup = group;
-        group.forEach(p => p.rank = 1);
-      } else {
-        // Calculate average base for this group
-        // The group occupies indices from currentRankIndex to currentRankIndex + group.length - 1
-        let baseSum = 0;
-        for (let i = 0; i < group.length; i++) {
-          const targetIndex = currentRankIndex + i; // 0=1st, 1=2nd, 2=3rd, 3=4th
-          baseSum += (rankBases[targetIndex] || 0);
-        }
-        const avgBase = baseSum / group.length;
-
-        // Calculate score for each member
-        group.forEach(p => {
-          p.rank = rank;
-          // specific requirement: Math.ceil for rounding up 2nd-4th
-          p.recalculated = Math.ceil((p.score - avgBase) / 1000);
-          sumOthers += p.recalculated;
-        });
-      }
-
-      rankCounter += group.length;
-    });
-
-    // Finalize Top Group
-    if (topGroup) {
-      const totalTopScore = -sumOthers;
-      const count = topGroup.length;
-      const baseTopScore = Math.floor(totalTopScore / count);
-      const remainder = totalTopScore % count; // e.g. 51 % 2 = 1
-
-      topGroup.forEach((p, i) => {
-        // Distribute remainder to first players in list (random/ordered by input doesn't matter much for tie)
-        p.recalculated = baseTopScore + (i < remainder ? 1 : 0);
-      });
-    }
-
-    setCalculated(calcResults);
+    const parsedPlayers = players.map(p => ({ name: p.name, score: parseInt(p.score, 10) }));
+    setCalculated(calculateGameScores(parsedPlayers));
   };
 
   const handleSubmit = async () => {
