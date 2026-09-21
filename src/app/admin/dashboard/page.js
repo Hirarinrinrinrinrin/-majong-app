@@ -5,6 +5,15 @@ import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import { calculateGameScores } from '@/lib/scoring';
 
+// SQLite's CURRENT_TIMESTAMP stores "YYYY-MM-DD HH:MM:SS" in UTC with no
+// timezone suffix, so `new Date(...)` on it directly gets misread as local
+// time. Mark it as UTC explicitly so it converts to the viewer's local time.
+const formatSubmittedTime = (submittedAt) => {
+    if (!submittedAt) return '';
+    const utcIso = submittedAt.replace(' ', 'T') + 'Z';
+    return new Date(utcIso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+};
+
 // Icons for the sidebar
 const Icons = {
     Dashboard: () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>,
@@ -1078,7 +1087,7 @@ export default function AdminDashboard() {
                                                         {activeEventScores.map(game => (
                                                             <tr key={game.id} className="hover:bg-gray-50">
                                                                 <td className="p-3 text-gray-400 font-mono w-20 border-r border-gray-50 text-xs align-top">
-                                                                    {new Date(game.submitted_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                                    {formatSubmittedTime(game.submitted_at)}
                                                                 </td>
                                                                 <td className="p-3">
                                                                     <div className="grid grid-cols-2 gap-x-4 gap-y-1 sm:flex sm:flex-wrap">
@@ -1596,9 +1605,13 @@ export default function AdminDashboard() {
                                                 <tr key={event.id} className="hover:bg-gray-50 transition-colors">
                                                     <td className="py-4 px-6 text-sm font-medium text-gray-900">{event.date}</td>
                                                     <td className="py-4 px-6">
-                                                        {event.is_active === 1
-                                                            ? <span className="badge badge-active">受付中</span>
-                                                            : <span className="badge badge-inactive">終了</span>}
+                                                        {event.status === 'active' ? (
+                                                            <span className="badge badge-active">受付中</span>
+                                                        ) : event.status === 'scheduled' ? (
+                                                            <span className="badge bg-blue-50 text-blue-700 border border-blue-200">予定</span>
+                                                        ) : (
+                                                            <span className="badge badge-inactive">終了</span>
+                                                        )}
                                                     </td>
                                                     <td className="py-4 px-6 text-right">
                                                         <button
@@ -1827,7 +1840,7 @@ export default function AdminDashboard() {
                                                             {historyDetailScores.map(game => (
                                                                 <tr key={game.id} className="hover:bg-gray-50">
                                                                     <td className="p-3 text-gray-400 font-mono w-32 whitespace-nowrap align-top">
-                                                                        {new Date(game.submitted_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                                        {formatSubmittedTime(game.submitted_at)}
                                                                     </td>
                                                                     <td className="p-3">
                                                                         {editingHistoryGameId === game.id ? (
