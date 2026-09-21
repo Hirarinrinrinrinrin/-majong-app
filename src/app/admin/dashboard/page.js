@@ -1266,7 +1266,7 @@ export default function AdminDashboard() {
                                                 <div className="flex space-x-1 min-w-max">
                                                     {[
                                                         { id: 'total', label: 'トータル' },
-                                                        { id: 'best_score', label: '最高得点' },
+                                                        { id: 'best_score', label: '最高打点' },
                                                         { id: 'avoidance_rate', label: 'ラス回避率' },
                                                         { id: 'most_wins', label: '最多勝' }
                                                     ].map(type => (
@@ -1296,7 +1296,7 @@ export default function AdminDashboard() {
                                                         <tr className="border-b border-gray-200 bg-gray-50">
                                                             <th className="py-3 px-4 text-xs font-semibold text-gray-500 w-16">順位</th>
                                                             <th className="py-3 px-4 text-xs font-semibold text-gray-500">プレイヤー名</th>
-                                                            <th className="py-3 px-4 text-xs font-semibold text-gray-500 text-right">得点</th>
+                                                            <th className="py-3 px-4 text-xs font-semibold text-gray-500 text-right">打点</th>
                                                             <th className="py-3 px-4 text-xs font-semibold text-gray-500 text-right">対局日</th>
                                                         </tr>
                                                     </thead>
